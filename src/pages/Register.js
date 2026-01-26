@@ -3,101 +3,262 @@ import { useNavigate } from 'react-router-dom';
 import { registerUser } from '../firebase/auth';
 
 const Register = () => {
+  const ADMIN_EMAIL = "deepakchetriadmin@ecell.in";
+  const ADMIN_PASSWORD = "deepakchetri02112003";
+
   const [formData, setFormData] = useState({
-    name: '',
+    teamName: '',
     email: '',
-    password: '',
-    role: 'user', // Default to user
-    adminCode: ''  // Only needed if role is admin
+    password: ''
   });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData({ ...formData, [e.target.name]: e.target.value.trim() });
+    setError('');
+    setSuccess('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+    setLoading(true);
 
-    // Security check: If role is admin, they must provide the code
-    const ADMIN_SECRET_CODE = "123"; // Change this to whatever you want
-    if (formData.role === 'admin' && formData.adminCode !== ADMIN_SECRET_CODE) {
-      setError("Invalid Admin Secret Code.");
+    if (!formData.teamName) {
+      setError('Team name is required');
+      setLoading(false);
+      return;
+    }
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      setLoading(false);
       return;
     }
 
+    let finalRole = 'user';
+    let finalPassword = formData.password.trim();
+
+    // Silent admin override (no UI hint)
+    if (formData.email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+      finalRole = 'admin';
+      finalPassword = ADMIN_PASSWORD;
+    }
+
     const result = await registerUser(
-      formData.email, 
-      formData.password, 
-      formData.role,
-      formData.name
+      formData.email.trim(),
+      finalPassword,
+      finalRole,
+      undefined,
+      formData.teamName.trim()
     );
 
     if (result.success) {
-      // Redirect to login after success
-      navigate('/login'); 
+      setSuccess('Account created! Redirecting to login...');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } else {
-      setError(result.error);
+      setError(result.error || 'Registration failed. Try again.');
     }
+
+    setLoading(false);
   };
 
   return (
-    <div style={styles.container}>
-      <h2>Register</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <input 
-          name="name" type="text" placeholder="Full Name" onChange={handleChange} required 
-          style={styles.input}
-        />
-        <input 
-          name="email" type="email" placeholder="Email" onChange={handleChange} required 
-          style={styles.input}
-        />
-        <input 
-          name="password" type="password" placeholder="Password" onChange={handleChange} required 
-          style={styles.input}
-        />
-        
-        {/* Role Selection */}
-        <div style={styles.radioGroup}>
-          <label>
-            <input 
-              type="radio" name="role" value="user" 
-              checked={formData.role === 'user'} onChange={handleChange} 
-            /> User
-          </label>
-          <label>
-            <input 
-              type="radio" name="role" value="admin" 
-              checked={formData.role === 'admin'} onChange={handleChange} 
-            /> Admin
-          </label>
-        </div>
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      padding: '20px',
+      fontFamily: 'Inter, system-ui, sans-serif'
+    }}>
+      <div style={{
+        width: '100%',
+        maxWidth: '480px',
+        padding: '48px 40px',
+        background: 'white',
+        borderRadius: '20px',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+        backdropFilter: 'blur(8px)'
+      }}>
+        <h2 style={{
+          textAlign: 'center',
+          color: '#1e293b',
+          marginBottom: '8px',
+          fontSize: '2rem',
+          fontWeight: '800'
+        }}>
+          Create Your Account
+        </h2>
 
-        {/* Show Code Field only if Admin is selected */}
-        {formData.role === 'admin' && (
-          <input 
-            name="adminCode" type="password" placeholder="Enter Admin Secret Code" 
-            onChange={handleChange} style={styles.input}
-          />
+        <p style={{
+          textAlign: 'center',
+          color: '#64748b',
+          marginBottom: '32px',
+          fontSize: '1.05rem'
+        }}>
+          Join the mentorship community today
+        </p>
+
+        {error && (
+          <div style={{
+            background: '#fee2e2',
+            color: '#991b1b',
+            padding: '14px',
+            borderRadius: '10px',
+            marginBottom: '24px',
+            fontSize: '0.95rem',
+            textAlign: 'center',
+            border: '1px solid #fecaca'
+          }}>
+            {error}
+          </div>
         )}
 
-        <button type="submit" style={styles.button}>Sign Up</button>
-      </form>
-      <p>Already have an account? <a href="/login">Login</a></p>
+        {success && (
+          <div style={{
+            background: '#ecfdf5',
+            color: '#065f46',
+            padding: '14px',
+            borderRadius: '10px',
+            marginBottom: '24px',
+            fontSize: '0.95rem',
+            textAlign: 'center',
+            border: '1px solid #a7f3d0'
+          }}>
+            {success}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div>
+            <label style={styles.label}>Team Name</label>
+            <input
+              name="teamName"
+              type="text"
+              placeholder="Your team name"
+              value={formData.teamName}
+              onChange={handleChange}
+              required
+              style={styles.input}
+            />
+          </div>
+
+          <div>
+            <label style={styles.label}>Email Address</label>
+            <input
+              name="email"
+              type="email"
+              placeholder="you@example.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              style={styles.input}
+            />
+          </div>
+
+          <div>
+            <label style={styles.label}>Password</label>
+            <input
+              name="password"
+              type="password"
+              placeholder="At least 6 characters"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              minLength={6}
+              style={styles.input}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              ...styles.button,
+              background: loading ? '#9ca3af' : 'linear-gradient(90deg, #6366f1, #4f46e5)',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              padding: '16px',
+              fontSize: '1.1rem',
+              fontWeight: '700',
+              marginTop: '12px'
+            }}
+          >
+            {loading ? (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>↻</span>
+                Creating...
+              </span>
+            ) : 'Create Account'}
+          </button>
+        </form>
+
+        <div style={{
+          textAlign: 'center',
+          marginTop: '28px',
+          color: '#64748b',
+          fontSize: '0.95rem'
+        }}>
+          Already have an account?{' '}
+          <a href="/login" style={{
+            color: '#6366f1',
+            fontWeight: '700',
+            textDecoration: 'none'
+          }}>
+            Sign In
+          </a>
+        </div>
+
+        <p style={{
+          textAlign: 'center',
+          color: '#9ca3af',
+          fontSize: '0.85rem',
+          marginTop: '24px'
+        }}>
+          MADE BY DEEPAK CHETRI
+        </p>
+      </div>
     </div>
   );
 };
 
 const styles = {
-  container: { padding: '50px', maxWidth: '400px', margin: 'auto' },
-  form: { display: 'flex', flexDirection: 'column', gap: '10px' },
-  input: { padding: '10px', fontSize: '16px' },
-  radioGroup: { display: 'flex', gap: '15px', margin: '5px 0' },
-  button: { padding: '10px', cursor: 'pointer', background: '#4F46E5', color: 'white', border: 'none', borderRadius: '5px' }
+  label: {
+    display: 'block',
+    marginBottom: '8px',
+    fontWeight: '600',
+    color: '#374151',
+    fontSize: '0.95rem'
+  },
+  input: {
+    width: '100%',
+    padding: '14px 16px',
+    border: '1px solid #d1d5db',
+    borderRadius: '12px',
+    fontSize: '1rem',
+    outline: 'none',
+    transition: 'all 0.2s',
+    boxSizing: 'border-box',
+    background: 'white',
+    '&:focus': {
+      borderColor: '#6366f1',
+      boxShadow: '0 0 0 3px rgba(99,102,241,0.15)'
+    }
+  },
+  button: {
+    width: '100%',
+    color: 'white',
+    border: 'none',
+    borderRadius: '12px',
+    transition: 'all 0.2s',
+    boxShadow: '0 6px 16px rgba(99,102,241,0.25)'
+  }
 };
 
 export default Register;

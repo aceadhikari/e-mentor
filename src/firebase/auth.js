@@ -1,4 +1,3 @@
-// src/firebase/auth.js
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
@@ -7,19 +6,34 @@ import {
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "./firebaseConfig";
 
-// --- REGISTER FUNCTION ---
-export const registerUser = async (email, password, role, name) => {
+// --- Admin Credentials (only used during registration override) ---
+const ADMIN_EMAIL = "deepakchetriadmin@ecell.in".trim().toLowerCase();
+const ADMIN_PASSWORD = "deepakchetri02112003";
+
+// --- 1. REGISTER FUNCTION ---
+export const registerUser = async (email, password, role, name = '', teamName) => {
   try {
-    // 1. Create the user in Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    // Normalize email for comparison
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // If registering as admin (exact email match), force admin password
+    let finalPassword = password;
+    let finalRole = role;
+
+    if (normalizedEmail === ADMIN_EMAIL) {
+      finalPassword = ADMIN_PASSWORD;
+      finalRole = 'admin'; // Force admin role even if passed something else
+    }
+
+    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), finalPassword);
     const user = userCredential.user;
 
-    // 2. Save the Role to Firestore Database
-    // Collection: "users", Document: userId
+    // Save to Firestore
     await setDoc(doc(db, "users", user.uid), {
-      name: name,
-      email: email,
-      role: role, // 'user' or 'admin'
+      name: name.trim() || '',         // Empty string if no name
+      teamName: teamName ? teamName.trim() : '',
+      email: email.trim(),
+      role: finalRole,
       createdAt: new Date(),
     });
 
@@ -29,21 +43,22 @@ export const registerUser = async (email, password, role, name) => {
   }
 };
 
-// --- LOGIN FUNCTION ---
+// --- 2. LOGIN FUNCTION ---
 export const loginUser = async (email, password) => {
   try {
-    // 1. Sign in with Firebase Auth
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password.trim());
     const user = userCredential.user;
 
-    // 2. Fetch the Role from Firestore
+    // Fetch Role from Firestore
     const userDoc = await getDoc(doc(db, "users", user.uid));
     
     if (userDoc.exists()) {
       const userData = userDoc.data();
-      return { success: true, role: userData.role }; // Return role so we can redirect
+      // Clean role just in case (removes any accidental whitespace/newline)
+      const cleanedRole = (userData.role || 'user').trim().toLowerCase();
+      return { success: true, role: cleanedRole }; 
     } else {
-      return { success: false, error: "User data not found." };
+      return { success: false, error: "User data not found in Firestore." };
     }
   } catch (error) {
     return { success: false, error: error.message };
